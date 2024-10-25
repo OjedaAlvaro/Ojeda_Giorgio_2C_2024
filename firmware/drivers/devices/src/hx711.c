@@ -125,12 +125,12 @@ uint32_t HX711_readAverage(uint8_t times)
 	return sum / times;
 }
 
-double HX711_getValue(uint8_t times)
+double HX711_get_value(uint8_t times)
 {
 	return HX711_readAverage(times) - OFFSET;
 }
 
-float HX711_getUnits(uint8_t times)
+float HX711_get_units(uint8_t times)
 {
 	return HX711_get_value(times) / SCALE;
 }

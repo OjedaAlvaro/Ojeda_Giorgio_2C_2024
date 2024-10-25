@@ -68,7 +68,6 @@ volatile float emg_filtrado[CHUNK];
 TaskHandle_t emg_task_handle = NULL;
 TaskHandle_t alert_task_handle = NULL;
 float umbral = 100.0;
-uint32_t escala = 1;
 
 
 /*==================[internal functions declaration]=========================*/
@@ -83,6 +82,7 @@ void FuncTimerAlert(void *param)
     xTaskNotifyGive(alert_task_handle);
 }
 
+/*
 void EnviarDatosUART(float *datos)
 {
     for (uint8_t indice = 0; indice < CHUNK; indice++)
@@ -105,12 +105,11 @@ void AplicarFiltrado(float *emg_entrada, float *emg_salida, uint8_t tamanio_seni
     // Paso 2: Aplicar el filtro pasa bajos a la señal rectificada
     LowPassFilter(emg_entrada, emg_salida, CHUNK);
 }
+*/
 
+void ControlMovLEDS(uint8_t indice){
+    //de ultima si no funca a la mierda--> Por el momento no funca
 
-void ControlMovLEDS(void){
-        //de ultima si no funca a la mierda
-    
-    uint8_t indice=0;
     float porcentaje= senialPrueba2[indice]/umbral;
     float LedsActivos = roundf(porcentaje*N_LEDS);//Casteo a int(?)
     NeoPixelAllOff();
@@ -120,7 +119,7 @@ void ControlMovLEDS(void){
     }
     
 }
-
+/* //Segun peña en este proyecto no hace falta
 void CalibrarCeldaCarga(float pesoReal){
     HX711_tare(10);
     uint32_t lecturaPeso = HX711_read();//De ultima HX711_readAverage(10);
@@ -128,21 +127,18 @@ void CalibrarCeldaCarga(float pesoReal){
     HX711_setScale(escala);
 
 
-}
+}*/
 
-void MedirFuerzaTASK(void *pvParameter){
-    uint8_t indice=0;
+void MedirFuerza(void ){
+    
     float fuerza=0;
-    while(true){
-
-        ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
-        if(senialPrueba[indice] >= umbral)
-        {
+    
         //HX711tare(10); no se si va en el main o aca
-        fuerza = HX711_get_units(10);
-        }
+     
+    fuerza = HX711_get_units(5);
+    printf("Valor de  Fuerza: %f",fuerza);
+    printf("\r\n");
 
-    }
 }
 
 void BuzzerLedTASK(void *pvParameter)
@@ -157,14 +153,17 @@ void BuzzerLedTASK(void *pvParameter)
             if(senialPrueba2[indice] > umbral)
             {
                 
-                //BuzzerPlayTone(NOTE_A6,250);
+                //BuzzerPlayTone(NOTE_A6,300);
                 NeoPixelAllColor(NEOPIXEL_COLOR_RED);
-                //printf("%d",senialPrueba2[indice]); esto no me funcionaba no se por que
+                MedirFuerza();
+                //printf("%d",senialPrueba2[indice]); //esto no me funcionaba no se por que
                 //printf("\r\n");
 
             }
-            //ControlMovLEDS();
+            //ControlMovLEDS(indice);
             indice++;
+            //printf("%d",senialPrueba2[indice]); 
+            //printf("\r\n");
         }else if (indice == 23)
 		{
 
@@ -173,6 +172,7 @@ void BuzzerLedTASK(void *pvParameter)
 
     }
 }
+/*
 static void EMGTask(void *pvParameter)
 {
     uint16_t valor_emg = 0;
@@ -197,7 +197,7 @@ static void EMGTask(void *pvParameter)
         }
         
     }
-}
+}*/
 /*==================[external functions definition]==========================*/
 void app_main(void)
 {
@@ -223,34 +223,33 @@ void app_main(void)
         .func_p = FuncTimerAlert,
         .param_p = NULL
     };
-
     //inicializacion de input,filtro Pasa bajo, timer, buzzer
     AnalogInputInit(&config_senial_emg);
     LowPassInit(SAMPLE_FREQ, 30, ORDER_2);
 
     TimerInit(&timer_senial);
     TimerInit(&timer_alerta);
-    BuzzerInit(GPIO_9);
+    BuzzerInit(GPIO_19);
     NeoPixelInit(GPIO_20, N_LEDS, color);
     NeoPixelAllOff();
     //BuzzerOn();
 
     //SCL: GPIO_7
     //SDA: GPIO_6
-    HX711_Init(128,GPIO_7, GPIO_6);
+    HX711_Init(128,GPIO_18, GPIO_9);
     //CalibrarCeldaCarga(200);
 
-    //HX711tare(10);
-
-    //HX711_setScale();//No se que valor va aca
+    HX711_tare(10);
+    HX711_setScale(2.436);//Calibrado con 100g
+    printf("Calibracion Ralizada \r\n");
     
     //creacion de tareas y arranca el timer
     //xTaskCreate(EMGTask, "EMG", 4096, NULL, 5, &emg_task_handle);
-    xTaskCreate(BuzzerLedTASK, "Buzzer", 1024, NULL, 5, &alert_task_handle);
-    //xTaskCreate(MedirFuerzaTASK, "MedirFuerza", 1024, NULL, 5, &emg_task_handle);
+    xTaskCreate(BuzzerLedTASK, "Buzzer", 2048, NULL, 5, &alert_task_handle);
 
     //TimerStart(timer_senial.timer);
     TimerStart(timer_alerta.timer);
+
 
 
 
