@@ -43,23 +43,22 @@
 
 /*==================[macros and definitions]=================================*/
 #define CONFIG_BLINK_PERIOD 500
-#define N_LEDS 8 //Para la tira de leds fijarme el anillo
+#define N_LEDS 8 // Para la tira de leds fijarme el anillo
 #define BUFFER_SIZE 256
 #define SAMPLE_FREQ 200
 #define T_SENIAL 1000
 #define CHUNK 4
-#define T_BUZZER 500*1000
+#define T_BUZZER 1000 * 1000
 /*==================[internal data definition]===============================*/
 
 float senialPrueba[] = {
-     25,28,36,55,59,78,  85,  78,  76,  85,  93,  85,  79,
-     86,  93,  93,  85,  87,  94,  98,  93,  87,  95, 104,  99,  91,
-     93, 102, 104,  99,  96, 101, 106, 102,  96,  97, 104, 106,  97,
-     94, 100, 103, 101,  91,  95, 103, 100,  94,  90,  98, 104,  94,
-     87,  93,  99,  97,  87,  86,  96,  98,65,63,62,61,60,55,54,49,20,16
-};
+    25, 28, 36, 55, 59, 78, 85, 78, 76, 85, 93, 85, 79,
+    86, 93, 93, 85, 87, 94, 98, 93, 87, 95, 104, 99, 91,
+    93, 102, 104, 99, 96, 101, 106, 102, 96, 97, 104, 106, 97,
+    94, 100, 103, 101, 91, 95, 103, 100, 94, 90, 98, 104, 94,
+    87, 93, 99, 97, 87, 86, 96, 98, 65, 63, 62, 61, 60, 55, 54, 49, 20, 16};
 
-int senialPrueba2[]={10,20,30,40,50,60,70,80,90,100,101,105,110,120,112,96,95,90,80,70,60,50,40};
+int senialPrueba2[] = {10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 101, 105, 110, 120, 112, 96, 95, 90, 80, 70, 60, 50, 40};
 
 volatile float emg_chunk[CHUNK];
 
@@ -69,12 +68,11 @@ TaskHandle_t emg_task_handle = NULL;
 TaskHandle_t alert_task_handle = NULL;
 float umbral = 100.0;
 
-
 /*==================[internal functions declaration]=========================*/
 
 void FuncTimerSenial(void *param)
 {
-    //xTaskNotifyGive(emg_task_handle);
+    xTaskNotifyGive(emg_task_handle);
 }
 
 void FuncTimerAlert(void *param)
@@ -82,8 +80,8 @@ void FuncTimerAlert(void *param)
     xTaskNotifyGive(alert_task_handle);
 }
 
-/*
-void EnviarDatosUART(float *datos)
+
+void EnviarDatos(float *datos)
 {
     for (uint8_t indice = 0; indice < CHUNK; indice++)
     {
@@ -103,21 +101,26 @@ void AplicarFiltrado(float *emg_entrada, float *emg_salida, uint8_t tamanio_seni
     }
 
     // Paso 2: Aplicar el filtro pasa bajos a la señal rectificada
-    LowPassFilter(emg_entrada, emg_salida, CHUNK);
+    //Aca tengo que ver si va un filtro pasa alto
+    LowPassFilter(senialRectificada, emg_salida, CHUNK);
 }
-*/
 
-void ControlMovLEDS(uint8_t indice){
-    //de ultima si no funca a la mierda--> Por el momento no funca
 
-    float porcentaje= senialPrueba2[indice]/umbral;
-    float LedsActivos = roundf(porcentaje*N_LEDS);//Casteo a int(?)
-    NeoPixelAllOff();
-    for(uint16_t pos_led=0;pos_led<LedsActivos;pos_led++){
-        
-        NeoPixelSetPixel(pos_led,NEOPIXEL_COLOR_BLUE);
+void ControlMovLEDS(uint8_t indice)
+{
+    // de ultima si no funca a la mierda--> Por el momento no funca
+
+    float porcentaje = senialPrueba2[indice] / umbral;
+    if (porcentaje > 1)
+    {
+        porcentaje = 1;
     }
-    
+    float LedsActivos = roundf(porcentaje * N_LEDS); // Casteo a int(?)
+    NeoPixelAllColor(0);
+    for (uint16_t pos_led = 0; pos_led < LedsActivos; pos_led++)
+    {
+        NeoPixelSetPixel(pos_led, NEOPIXEL_COLOR_BLUE);
+    }
 }
 /* //Segun peña en este proyecto no hace falta
 void CalibrarCeldaCarga(float pesoReal){
@@ -129,54 +132,61 @@ void CalibrarCeldaCarga(float pesoReal){
 
 }*/
 
-void MedirFuerza(void ){
-    
-    float fuerza=0;
-    
-        //HX711tare(10); no se si va en el main o aca
-     
-    fuerza = HX711_get_units(5);
-    printf("Valor de  Fuerza: %f",fuerza);
-    printf("\r\n");
+void MedirFuerza(void)
+{
 
+    float fuerza = 0;
+
+    // HX711tare(10); no se si va en el main o aca
+
+    fuerza = HX711_get_units(5);
+    printf("Valor de  Fuerza: %f", fuerza);
+    printf("\r\n");
 }
 
 void BuzzerLedTASK(void *pvParameter)
 {
 
-    uint8_t indice=0;
+    uint8_t indice = 0;
     while (true)
     {
         ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
-        if(indice < 23)
+        if (indice < 22)
         {
-            if(senialPrueba2[indice] > umbral)
+            NeoPixelAllOff(); // Apago todos para prenderlos rojo
+
+            if (senialPrueba2[indice] > umbral)
             {
-                
-                //BuzzerPlayTone(NOTE_A6,300);
+
+                // BuzzerPlayTone(NOTE_A6,300);
                 NeoPixelAllColor(NEOPIXEL_COLOR_RED);
-                MedirFuerza();
-                //printf("%d",senialPrueba2[indice]); //esto no me funcionaba no se por que
-                //printf("\r\n");
-
+                // MedirFuerza();
+                // printf("%d",senialPrueba2[indice]); //esto no me funcionaba no se por que
+                // printf("\r\n");
             }
-            //ControlMovLEDS(indice);
+            else
+            {
+                ControlMovLEDS(indice);
+            }
             indice++;
-            //printf("%d",senialPrueba2[indice]); 
+            //printf("%d", senialPrueba2[indice]);
             //printf("\r\n");
-        }else if (indice == 23)
-		{
+        }
+        else if (indice == 22)
+        {
 
-			indice = 0;
-		}
-
+            indice = 0;
+        }
     }
 }
-/*
+
 static void EMGTask(void *pvParameter)
 {
     uint16_t valor_emg = 0;
     uint8_t contador = 0;
+
+    char msg[128];
+    char msg_chunk[24];
 
     while (true)
     {
@@ -188,16 +198,28 @@ static void EMGTask(void *pvParameter)
             contador++;
         }
         else
-        {
-            AplicarFiltrado(emg_chunk, emg_filtrado, CHUNK);
+        {   
+            HiPassFilter(emg_chunk, emg_filtrado, CHUNK);
+            //AplicarFiltrado(emg_chunk, emg_filtrado, CHUNK);
             //si encuentra el umbral que mida la fuerza de la mano, emite alerta
-            EnviarDatosUART(emg_filtrado);//para ver los datos
-            
+            //EnviarDatosUART(emg_filtrado);//para ver los datos
+
+            strcpy(msg, "");
+
+			// Envía el chunk procesado por puerto serie
+			for (uint8_t k = 0; k < CHUNK; k++)
+			{
+				sprintf(msg_chunk, "%.2f\r\n", emg_filtrado[k]);
+				strcat(msg,msg_chunk);
+			}
+			printf(msg);
+
+
             contador = 0;
         }
-        
+
     }
-}*/
+}
 /*==================[external functions definition]==========================*/
 void app_main(void)
 {
@@ -207,59 +229,49 @@ void app_main(void)
         .mode = ADC_SINGLE,
         .func_p = NULL,
         .param_p = NULL,
-        .sample_frec = 0
-    };
+        .sample_frec = 0};
 
     timer_config_t timer_senial = {
         .timer = TIMER_A,
         .period = T_SENIAL,
         .func_p = FuncTimerSenial,
-        .param_p = NULL
-    };
+        .param_p = NULL};
 
     timer_config_t timer_alerta = {
         .timer = TIMER_B,
         .period = T_BUZZER,
         .func_p = FuncTimerAlert,
-        .param_p = NULL
-    };
-    //inicializacion de input,filtro Pasa bajo, timer, buzzer
+        .param_p = NULL};
+    // inicializacion de input,filtro Pasa bajo, timer, buzzer
     AnalogInputInit(&config_senial_emg);
     LowPassInit(SAMPLE_FREQ, 30, ORDER_2);
+    HiPassInit(SAMPLE_FREQ, 1, ORDER_2);
 
     TimerInit(&timer_senial);
     TimerInit(&timer_alerta);
     BuzzerInit(GPIO_19);
     NeoPixelInit(GPIO_20, N_LEDS, color);
     NeoPixelAllOff();
-    //BuzzerOn();
+    // BuzzerOn();
 
-    //SCL: GPIO_7
-    //SDA: GPIO_6
-    HX711_Init(128,GPIO_18, GPIO_9);
-    //CalibrarCeldaCarga(200);
+    // SCL: GPIO_7
+    // SDA: GPIO_6
+    HX711_Init(128, GPIO_18, GPIO_9);
+    // CalibrarCeldaCarga(200);
 
     HX711_tare(10);
-    HX711_setScale(2.436);//Calibrado con 100g
+    HX711_setScale(2.436); // Calibrado con 100g
     printf("Calibracion Ralizada \r\n");
-    
-    //creacion de tareas y arranca el timer
-    //xTaskCreate(EMGTask, "EMG", 4096, NULL, 5, &emg_task_handle);
+    NeoPixelAllColor(NEOPIXEL_COLOR_GREEN);
+    // vTaskDelay(700 / portTICK_PERIOD_MS);
+    // NeoPixelAllOff();
+
+    // creacion de tareas y arranca el timer
+    xTaskCreate(EMGTask, "EMG", 4096, NULL, 5, &emg_task_handle);
     xTaskCreate(BuzzerLedTASK, "Buzzer", 2048, NULL, 5, &alert_task_handle);
 
-    //TimerStart(timer_senial.timer);
+    TimerStart(timer_senial.timer);
     TimerStart(timer_alerta.timer);
-
-
-
-
-
-
-
-
-
-
-
 
     /*
     uint8_t blink = 0;
@@ -307,5 +319,5 @@ void app_main(void)
     }*/
 }
 
-//Posible tono para el umbral alerta:d=8,o=5,b=150:c6,e6,g6
+// Posible tono para el umbral alerta:d=8,o=5,b=150:c6,e6,g6
 /*==================[end of file]============================================*/
