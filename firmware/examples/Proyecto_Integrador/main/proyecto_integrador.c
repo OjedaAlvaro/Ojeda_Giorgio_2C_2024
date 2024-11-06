@@ -1,4 +1,4 @@
-/*! @mainpage Ejemplo Bluetooth - Filter
+/*! @mainpage Proyecto final - 
  *
  * @section genDesc General Description
  *
@@ -13,7 +13,7 @@
  * |   HX711 DATA 	| 	 GPIO_9		|
  * |   BUZZER	 	| 	 GPIO_19	|
  * |   NEOPIXEL 	| 	 GPIO_20	|
- * 
+ * |   ADC CH1   	| 	 GPIO_01	|
  * |   GND	     	| 	  GND		|
  * |   +5V  	 	| 	  +5V		|
  *
@@ -22,9 +22,10 @@
  *
  * |   Date	    | Description                                    |
  * |:----------:|:-----------------------------------------------|
- * | 12/09/2024 | Document creation		                         |
+ * | 17/10/2024 | Document creation		                         |
  *
  * @author Alvaro Ojeda (alvaro.ojeda@ingenieria.uner.edu.ar)
+ * @author Giovanni Giorgio (giovanni.giorgio@ingenieria.uner.edu.ar)
  *
  */
 
