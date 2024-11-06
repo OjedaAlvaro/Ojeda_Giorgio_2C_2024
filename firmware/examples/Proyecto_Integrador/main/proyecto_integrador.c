@@ -297,6 +297,7 @@ void app_main(void){
 
     
     /*Variable declarations*/
+    printf("Hola\r\n");
     static neopixel_color_t color[N_LEDS];
 
     /*Inicializations*/
@@ -339,8 +340,8 @@ void app_main(void){
     NeoPixelAllColor(NEOPIXEL_COLOR_GREEN);
 
     /*Tasks*/
-    xTaskCreate(EMGTask, "EMG", 4096, NULL, 5, &emg_task_handle);
-    xTaskCreate(BuzzerLedTask, "Buzzer", 2048, NULL, 5, &alert_task_handle);
+    //xTaskCreate(EMGTask, "EMG", 4096, NULL, 5, &emg_task_handle);
+    //xTaskCreate(BuzzerLedTask, "Buzzer", 2048, NULL, 5, &alert_task_handle);
 
     /*Timers start*/
     TimerStart(timer_senial.timer);
