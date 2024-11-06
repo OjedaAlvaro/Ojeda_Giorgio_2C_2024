@@ -81,7 +81,7 @@
 /** @def T_BUZZER
  * @brief Frecuencia del buzzer
  */
-#define T_BUZZER 1000 * 1000
+#define T_BUZZER 1000 
 /*==================[internal data definition]===============================*/
 
 /** @def senialPrueba
@@ -141,21 +141,13 @@ void FuncTimerSenial(void *param)
  */
 void FuncTimerAlert(void *param)
 {
-    xTaskNotifyGive(alert_task_handle);
+    //xTaskNotifyGive(alert_task_handle); //Este avisa en la otra tarea
 }
 
 /**  @def void EnviarDatos(float *datos)
  * @brief Función que envía los datos por UART
  * @param[in] datos float* que corresponde a los datos a enviar
  */
-void EnviarDatos(float *datos)
-{
-    for (uint8_t indice = 0; indice < CHUNK; indice++) // Envia por UART bloques de datos de n-CHUNK datos
-    {
-        UartSendString(UART_PC, (char *)UartItoa(datos[indice], 10)); 
-        UartSendString(UART_PC, "\r\n");
-    }
-}
 
 /**  @def void AplicarFiltrado(float *emg_entrada, float *emg_salida, uint8_t tamanio_senial)
  * @brief Función que aplica el filtro pasa bajo a los datos de la señal
@@ -184,8 +176,7 @@ void AplicarFiltrado(float *emg_entrada, float *emg_salida, uint8_t tamanio_seni
  */
 void ControlMovLEDS(uint8_t indice)
 {
-    // de ultima si no funca a la mierda--> Por el momento no funca
-
+ 
     float porcentaje = senialPrueba2[indice] / umbral;
     if (porcentaje > 1)
     {
@@ -197,17 +188,10 @@ void ControlMovLEDS(uint8_t indice)
     {
         NeoPixelSetPixel(pos_led, NEOPIXEL_COLOR_BLUE);
     }
+
 }
 
-/* //Segun peña en este proyecto no hace falta
-void CalibrarCeldaCarga(float pesoReal){
-    HX711_tare(10);
-    uint32_t lecturaPeso = HX711_read();//De ultima HX711_readAverage(10);
-    float escala = lecturaPeso/pesoReal;
-    HX711_setScale(escala);
 
-
-}*/
 
 /**  @def void MedirFuerza(void)
  * @brief Función que mide la fuerza aplicada
@@ -231,7 +215,17 @@ void BuzzerLedTask(void *pvParameter)
     while (true)
     {
         ulTaskNotifyTake(pdTRUE, portMAX_DELAY); // La tarea espera en este punto hasta recibir una notificación
-
+        
+        for (uint8_t k = 0; k < CHUNK; k++) // Recorre emg_filtrado
+        {
+            ControlMovLEDS(emg_filtrado[k]);
+            if(emg_filtrado[k] > umbral){
+                // BuzzerPlayTone(NOTE_A6,300);
+                NeoPixelAllColor(NEOPIXEL_COLOR_RED);                     
+                // MedirFuerza();
+            }
+        }
+        /*
         if (indice < 22)
         {
             NeoPixelAllOff(); // Apago todos para prenderlos rojo
@@ -242,23 +236,15 @@ void BuzzerLedTask(void *pvParameter)
                 // BuzzerPlayTone(NOTE_A6,300);
                 NeoPixelAllColor(NEOPIXEL_COLOR_RED);                     
                 // MedirFuerza();
-                // printf("%d",senialPrueba2[indice]); //esto no me funcionaba no se por que
-                // printf("\r\n");
+                
             }
             else
             {
-                ControlMovLEDS(indice); // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-                                        // La simplificaria a esta funcion, si esta -50% verde, 50% a 90% amarillo,
-                                        // +90% naranja   
-            }
+                ControlMovLEDS(indice); 
+
             indice++;
-            //printf("%d", senialPrueba2[indice]);
-            //printf("\r\n");
-        }
-        else if (indice == 22)
-        {
-            indice = 0;
-        }
+            }  }*/
+        
     }
 }
 
@@ -287,7 +273,7 @@ static void EMGTask(void *pvParameter)
         else
         {   
             HiPassFilter(emg_chunk, emg_filtrado, CHUNK); // Filtra el bloque de n=CHUNK datos
-            //AplicarFiltrado(emg_chunk, emg_filtrado, CHUNK);
+            AplicarFiltrado(emg_filtrado, emg_filtrado, CHUNK);
             //si encuentra el umbral que mida la fuerza de la mano, emite alerta
             //EnviarDatosUART(emg_filtrado);//para ver los datos
 
@@ -302,19 +288,21 @@ static void EMGTask(void *pvParameter)
 			printf(msg); // Muestra el string msg en la consola
             
             contador = 0; // Reinicia el contador
+            xTaskNotifyGive(alert_task_handle);//Esto es para que notifique cuando tenga los 4 valores
         }
     }
 }
 /*==================[external functions definition]==========================*/
 void app_main(void){
 
+    
     /*Variable declarations*/
     static neopixel_color_t color[N_LEDS];
-    
+
     /*Inicializations*/
-    LowPassInit(SAMPLE_FREQ, 30, ORDER_2); // Inicializo el filtro pasa bajo
-    HiPassInit(SAMPLE_FREQ, 1, ORDER_2); // Inicializo el filtro pasa alto
-    HX711_Init(128, GPIO_18, GPIO_9); // Inicializa el sensor de fuerza HX711
+    LowPassInit(SAMPLE_FREQ, 500, ORDER_2); // Inicializo el filtro pasa bajo
+    HiPassInit(SAMPLE_FREQ, 0.1, ORDER_2); // Inicializo el filtro pasa alto
+    //HX711_Init(128, GPIO_18, GPIO_9); // Inicializa el sensor de fuerza HX711
     BuzzerInit(GPIO_19); // Inicializo el buzzer
     NeoPixelInit(GPIO_20, N_LEDS, color); // Inicializo la tira LED
 
@@ -344,9 +332,11 @@ void app_main(void){
     TimerInit(&timer_alerta); // Inicializa el timer B
     
     /*HX711 calibration*/
-    HX711_tare(10); // Tara el 0 en el sensor
-    HX711_setScale(2.436); // Calibrado con 100g
-    printf("Calibracion Ralizada \r\n");
+    //HX711_tare(10); // Tara el 0 en el sensor
+    //HX711_setScale(2.436); // Calibrado con 100g
+    printf("Calibracion Realizada \r\n");
+    NeoPixelAllOff();
+    NeoPixelAllColor(NEOPIXEL_COLOR_GREEN);
 
     /*Tasks*/
     xTaskCreate(EMGTask, "EMG", 4096, NULL, 5, &emg_task_handle);
@@ -356,14 +346,12 @@ void app_main(void){
     TimerStart(timer_senial.timer);
     TimerStart(timer_alerta.timer);
 
-
     //!!!!!!!!!!!!!!!!!!!!!!!!!!! La fuerza no se mide contantemente
 
 
 
 
 
-    NeoPixelAllOff();
     // BuzzerOn();
 
     // SCL: GPIO_7
@@ -371,7 +359,6 @@ void app_main(void){
     
     // CalibrarCeldaCarga(200);
 
-    NeoPixelAllColor(NEOPIXEL_COLOR_GREEN);
     // vTaskDelay(700 / portTICK_PERIOD_MS);
     // NeoPixelAllOff();
 
