@@ -2,7 +2,8 @@
  *
  * @section genDesc General Description
  *
- * This section describes how the program works.
+ *  Este proyecto consiste desarrollar un sistema para medir y monitorear un brazo en rehabilitación, mediante un umbral de EMG 
+ *  y evaluando la fuerza muscular del paciente en el tiempo.
  *
  *
  * @section hardConn Hardware Connection
@@ -40,7 +41,6 @@
 #include "buzzer.h"
 #include "led.h"
 #include "neopixel_stripe.h"
-#include "ble_mcu.h"
 #include "analog_io_mcu.h"
 #include "uart_mcu.h"
 #include "timer_mcu.h"
@@ -48,25 +48,18 @@
 #include "hx711.h"
 
 /*==================[macros and definitions]=================================*/
-/** @def CONFIG_BLINK_PERIOD 
- * @brief 
- */
-//#define CONFIG_BLINK_PERIOD 500
+
 
 /** @def N_LEDS
  * @brief Numero de leds en la tira
  */
-#define N_LEDS 8 // Para la tira de leds fijarme el anillo
+#define N_LEDS 8 
 
-/** @def BUFFER_SIZE
- * @brief Tamaño del buffer de datos
- */
-#define BUFFER_SIZE 256
 
 /** @def SAMPLE_FREQ
  * @brief Frecuencia de muestreo
  */
-#define SAMPLE_FREQ 200
+#define SAMPLE_FREQ 200 //---> ver esto xq puede que haya dado error por esto jaja deberia ser 1000?
 
 /** @def T_SENIAL
  * @brief ??
@@ -84,32 +77,16 @@
 #define T_BUZZER 1000 
 /*==================[internal data definition]===============================*/
 
-/** @def senialPrueba
- * @brief Señal de prueba 1
- */
-float senialPrueba[] = {
-    25, 28, 36, 55, 59, 78, 85, 78, 76, 85, 93, 85, 79,
-    86, 93, 93, 85, 87, 94, 98, 93, 87, 95, 104, 99, 91,
-    93, 102, 104, 99, 96, 101, 106, 102, 96, 97, 104, 106, 97,
-    94, 100, 103, 101, 91, 95, 103, 100, 94, 90, 98, 104, 94,
-    87, 93, 99, 97, 87, 86, 96, 98, 65, 63, 62, 61, 60, 55, 54, 49, 20, 16};
-
-/** @def senialPrueba2
- * @brief Señal de prueba 2
- */
-int senialPrueba2[] = {
-    10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 101, 105,
-    110, 120, 112, 96, 95, 90, 80, 70, 60, 50, 40};
 
 /** @def emg_chunk
  * @brief Bloque de n-CHUNK datos
  */
-volatile float emg_chunk[CHUNK];
+float emg_chunk[CHUNK];
 
 /** @def emg_filtrado
  * @brief Bloque de n-CHUNK datos filtrados
  */
-volatile float emg_filtrado[CHUNK];
+float emg_filtrado[CHUNK];
 
 /** @def umbral
  * @brief Valor umbral del EMG
@@ -144,10 +121,6 @@ void FuncTimerAlert(void *param)
     //xTaskNotifyGive(alert_task_handle); //Este avisa en la otra tarea
 }
 
-/**  @def void EnviarDatos(float *datos)
- * @brief Función que envía los datos por UART
- * @param[in] datos float* que corresponde a los datos a enviar
- */
 
 /**  @def void AplicarFiltrado(float *emg_entrada, float *emg_salida, uint8_t tamanio_senial)
  * @brief Función que aplica el filtro pasa bajo a los datos de la señal
@@ -177,12 +150,12 @@ void AplicarFiltrado(float *emg_entrada, float *emg_salida, uint8_t tamanio_seni
 void ControlMovLEDS(uint8_t indice)
 {
  
-    float porcentaje = senialPrueba2[indice] / umbral;
+    float porcentaje = indice / umbral;
     if (porcentaje > 1)
     {
         porcentaje = 1;
     }
-    float LedsActivos = roundf(porcentaje * N_LEDS); // Casteo a int(?)
+    float LedsActivos = roundf(porcentaje * N_LEDS); 
     NeoPixelAllColor(0);
     for (uint16_t pos_led = 0; pos_led < LedsActivos; pos_led++)
     {
@@ -191,8 +164,6 @@ void ControlMovLEDS(uint8_t indice)
 
 }
 
-
-
 /**  @def void MedirFuerza(void)
  * @brief Función que mide la fuerza aplicada
  */
@@ -200,8 +171,8 @@ void MedirFuerza(void)
 {
     float fuerza = 0;
 
-    fuerza = HX711_get_units(5);
-    printf("Valor de  Fuerza: %f", fuerza);
+    fuerza = HX711_get_units(5)/1000;
+    printf("Valor de  Fuerza en kg Fuerza: %f", fuerza);
     printf("\r\n");
 }
 
@@ -220,30 +191,12 @@ void BuzzerLedTask(void *pvParameter)
         {
             ControlMovLEDS(emg_filtrado[k]);
             if(emg_filtrado[k] > umbral){
-                // BuzzerPlayTone(NOTE_A6,300);
+                BuzzerPlayTone(NOTE_A6,300);
                 NeoPixelAllColor(NEOPIXEL_COLOR_RED);                     
-                // MedirFuerza();
+                MedirFuerza();
             }
         }
-        /*
-        if (indice < 22)
-        {
-            NeoPixelAllOff(); // Apago todos para prenderlos rojo
-
-            if (senialPrueba2[indice] > umbral) // Si el valor de la senial es mayor al umbral se activa la tira LED en rojo y el buzzer
-            {
-
-                // BuzzerPlayTone(NOTE_A6,300);
-                NeoPixelAllColor(NEOPIXEL_COLOR_RED);                     
-                // MedirFuerza();
-                
-            }
-            else
-            {
-                ControlMovLEDS(indice); 
-
-            indice++;
-            }  }*/
+        
         
     }
 }
@@ -274,9 +227,7 @@ static void EMGTask(void *pvParameter)
         {   
             HiPassFilter(emg_chunk, emg_filtrado, CHUNK); // Filtra el bloque de n=CHUNK datos
             AplicarFiltrado(emg_filtrado, emg_filtrado, CHUNK);
-            //si encuentra el umbral que mida la fuerza de la mano, emite alerta
-            //EnviarDatosUART(emg_filtrado);//para ver los datos
-
+            
             strcpy(msg, ""); // Limpia el contenido de la variable msg
 
 			// Envía el chunk procesado por puerto serie
@@ -297,13 +248,13 @@ void app_main(void){
 
     
     /*Variable declarations*/
-    printf("Hola\r\n");
+    printf("Hola! Bienvenido al sistema de seguimiento de rehabilitación muscular. \r\n");
     static neopixel_color_t color[N_LEDS];
 
     /*Inicializations*/
     LowPassInit(SAMPLE_FREQ, 500, ORDER_2); // Inicializo el filtro pasa bajo
     HiPassInit(SAMPLE_FREQ, 0.1, ORDER_2); // Inicializo el filtro pasa alto
-    //HX711_Init(128, GPIO_18, GPIO_9); // Inicializa el sensor de fuerza HX711
+    HX711_Init(128, GPIO_18, GPIO_9); // Inicializa el sensor de fuerza HX711
     BuzzerInit(GPIO_19); // Inicializo el buzzer
     NeoPixelInit(GPIO_20, N_LEDS, color); // Inicializo la tira LED
 
@@ -318,7 +269,7 @@ void app_main(void){
 
     timer_config_t timer_senial = { // Configuración del timer para la adquisición de la señal de EMG
         .timer = TIMER_A,
-        .period = T_SENIAL,
+        .period = T_SENIAL,  //Fijarme si tiene que ser T_SENIAL o T_SENIAL*CHUNK
         .func_p = FuncTimerSenial,
         .param_p = NULL
     };
@@ -333,82 +284,24 @@ void app_main(void){
     TimerInit(&timer_alerta); // Inicializa el timer B
     
     /*HX711 calibration*/
-    //HX711_tare(10); // Tara el 0 en el sensor
-    //HX711_setScale(2.436); // Calibrado con 100g
+    HX711_tare(5);
+    HX711_tare(5); // Tara el 0 en el sensor
+    HX711_setScale(2.436); // Calibrado con 100g
+    printf("Por favor aguarde mientras la celda de carga es calibrada. \r\n");
     printf("Calibracion Realizada \r\n");
     NeoPixelAllOff();
     NeoPixelAllColor(NEOPIXEL_COLOR_GREEN);
+    vTaskDelay(1000 / portTICK_PERIOD_MS);
+    NeoPixelAllOff();
 
     /*Tasks*/
-    //xTaskCreate(EMGTask, "EMG", 4096, NULL, 5, &emg_task_handle);
-    //xTaskCreate(BuzzerLedTask, "Buzzer", 2048, NULL, 5, &alert_task_handle);
+    xTaskCreate(EMGTask, "EMG", 4096, NULL, 5, &emg_task_handle);
+    xTaskCreate(BuzzerLedTask, "Buzzer", 2048, NULL, 5, &alert_task_handle);
 
     /*Timers start*/
     TimerStart(timer_senial.timer);
     TimerStart(timer_alerta.timer);
 
-    //!!!!!!!!!!!!!!!!!!!!!!!!!!! La fuerza no se mide contantemente
-
-
-
-
-
-    // BuzzerOn();
-
-    // SCL: GPIO_7
-    // SDA: GPIO_6
-    
-    // CalibrarCeldaCarga(200);
-
-    // vTaskDelay(700 / portTICK_PERIOD_MS);
-    // NeoPixelAllOff();
-
-
-
-    /*
-    uint8_t blink = 0;
-    static neopixel_color_t color;
-    ble_config_t ble_configuration = {
-        "ESP_EDU_1",
-        read_data
-    };
-    timer_config_t timer_senial = {
-        .timer = TIMER_B,
-        .period = T_SENIAL*CHUNK,
-        .func_p = FuncTimerSenial,
-        .param_p = NULL
-    };
-
-    NeoPixelInit(BUILT_IN_RGB_LED_PIN, BUILT_IN_RGB_LED_LENGTH, &color);
-    NeoPixelAllOff();
-    TimerInit(&timer_senial);
-    LedsInit();
-    LowPassInit(SAMPLE_FREQ, 30, ORDER_2);
-    HiPassInit(SAMPLE_FREQ, 1, ORDER_2);
-    BleInit(&ble_configuration);
-
-    xTaskCreate(EMGTask, "FFT", 4096, NULL, 5, &emg_task_handle);
-    TimerStart(timer_senial.timer);
-
-    while(1){
-        vTaskDelay(CONFIG_BLINK_PERIOD / portTICK_PERIOD_MS);
-        switch(BleStatus()){
-            case BLE_OFF:
-                NeoPixelAllOff();
-            break;
-            case BLE_DISCONNECTED:
-                if(blink%2){
-                    NeoPixelAllColor(NEOPIXEL_COLOR_BLUE);
-                }else{
-                    NeoPixelAllOff();
-                }
-                blink++;
-            break;
-            case BLE_CONNECTED:
-                NeoPixelAllColor(NEOPIXEL_COLOR_BLUE);
-            break;
-        }
-    }*/
 }
 
 // Posible tono para el umbral alerta:d=8,o=5,b=150:c6,e6,g6
