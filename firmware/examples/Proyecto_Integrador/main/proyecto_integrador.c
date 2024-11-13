@@ -49,12 +49,10 @@
 
 /*==================[macros and definitions]=================================*/
 
-
 /** @def N_LEDS
  * @brief Numero de leds en la tira
  */
 #define N_LEDS 8 
-
 
 /** @def SAMPLE_FREQ
  * @brief Frecuencia de muestreo
@@ -75,8 +73,8 @@
  * @brief Frecuencia del buzzer
  */
 #define T_BUZZER 1000 
-/*==================[internal data definition]===============================*/
 
+/*==================[internal data definition]===============================*/
 
 /** @def emg_chunk
  * @brief Bloque de n-CHUNK datos
@@ -121,7 +119,6 @@ void FuncTimerAlert(void *param)
     //xTaskNotifyGive(alert_task_handle); //Este avisa en la otra tarea
 }
 
-
 /**  @def void AplicarFiltrado(float *emg_entrada, float *emg_salida, uint8_t tamanio_senial)
  * @brief Función que aplica el filtro pasa bajo a los datos de la señal
  * @param[in] emg_entrada float* que corresponde a los datos de la señal
@@ -139,7 +136,6 @@ void AplicarFiltrado(float *emg_entrada, float *emg_salida, uint8_t tamanio_seni
     }
 
     // Paso 2: Aplicar el filtro pasa bajos a la señal rectificada
-    //Aca tengo que ver si va un filtro pasa alto
     LowPassFilter(senialRectificada, emg_salida, CHUNK);
 }
 
@@ -149,19 +145,21 @@ void AplicarFiltrado(float *emg_entrada, float *emg_salida, uint8_t tamanio_seni
  */
 void ControlMovLEDS(uint8_t indice)
 {
- 
     float porcentaje = indice / umbral;
+
     if (porcentaje > 1)
     {
         porcentaje = 1;
     }
+
     float LedsActivos = roundf(porcentaje * N_LEDS); 
+
     NeoPixelAllColor(0);
+
     for (uint16_t pos_led = 0; pos_led < LedsActivos; pos_led++)
     {
         NeoPixelSetPixel(pos_led, NEOPIXEL_COLOR_BLUE);
     }
-
 }
 
 /**  @def void MedirFuerza(void)
@@ -190,14 +188,14 @@ void BuzzerLedTask(void *pvParameter)
         for (uint8_t k = 0; k < CHUNK; k++) // Recorre emg_filtrado
         {
             ControlMovLEDS(emg_filtrado[k]);
-            if(emg_filtrado[k] > umbral){
+            
+            if(emg_filtrado[k] > umbral)
+            {
                 BuzzerPlayTone(NOTE_A6,300);
                 NeoPixelAllColor(NEOPIXEL_COLOR_RED);                     
                 MedirFuerza();
             }
-        }
-        
-        
+        } 
     }
 }
 
@@ -243,10 +241,10 @@ static void EMGTask(void *pvParameter)
         }
     }
 }
+
 /*==================[external functions definition]==========================*/
 void app_main(void){
 
-    
     /*Variable declarations*/
     printf("Hola! Bienvenido al sistema de seguimiento de rehabilitación muscular. \r\n");
     static neopixel_color_t color[N_LEDS];
